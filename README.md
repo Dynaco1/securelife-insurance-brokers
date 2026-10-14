@@ -50,225 +50,35 @@ An enterprise-grade insurance lead qualification, customer relationship manageme
 
 ---
 
-## Prerequisites
+## Installation & Setup
 
-Before starting, ensure you have the following installed on your machine:
+For step-by-step installation, environment setup, database migrations, seeding runbooks, and test suite execution, please refer directly to the respective service documentation:
 
-* **Docker & Docker Compose** (Docker Desktop on Windows/macOS or Docker Engine on Linux)
-* *(Optional for native development)*:
-  * **Python 3.11+** with [`uv`](https://docs.astral.sh/uv/) package manager
-  * **Node.js 20+** and **npm**
+* [**Backend Service Setup & Guide**](backend/README.md)
+  * Docker Compose & Local Native setup (`uv`)
+  * Alembic database migrations (`upgrade head`, `downgrade`, `revision`)
+  * Database seeding (`app.db.seed`) & fresh reseed runbook
+  * Backend test suite execution (`pytest`)
+  * Interactive API Swagger & ReDoc documentation
 
----
-
-## Step-by-Step Installation (Docker Compose — Recommended)
-
-### 1. Environment Configuration
-
-Copy the example environment files for both backend and frontend:
-
-```bash
-# Backend environment configuration
-cp backend/.env.example backend/.env
-
-# Frontend environment configuration
-cp frontend/.env.example frontend/.env
-```
-
-> **Note on LLM API Keys**:
-> By default, the application runs with `LLM_PROVIDER=mock` for testing without external API dependencies.
-> To enable live LLM inference with Groq or OpenAI, edit `backend/.env`:
-> ```env
-> LLM_PROVIDER=groq
-> GROQ_API_KEY=your_groq_api_key_here
-> ```
-
----
-
-### 2. Build and Launch Containers
-
-Start the PostgreSQL database and backend service:
-
-```bash
-cd backend
-docker compose up -d --build
-```
-
-Start the frontend service:
-
-```bash
-cd ../frontend
-docker compose up -d --build
-```
-
-Verify that all three containers are healthy and running:
-
-```bash
-docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-```
-
-Expected output:
-```
-NAMES                     STATUS                    PORTS
-securelife_backend_dev    Up (healthy)              0.0.0.0:8000->8000/tcp
-securelife_postgres_dev   Up (healthy)              0.0.0.0:5432->5432/tcp
-securelife_frontend_dev   Up                        0.0.0.0:5173->5173/tcp
-```
-
----
-
-## Database Migrations (Alembic)
-
-Database tables are managed version-by-version using Alembic migrations.
-
-### Run Migrations to Latest Schema (`head`)
-
-**Inside Docker container:**
-```bash
-docker exec securelife_backend_dev uv run alembic upgrade head
-```
-
-*Alternative via Docker Compose (from `backend/` directory):*
-```bash
-cd backend
-docker compose exec backend uv run alembic upgrade head
-```
-
-*Alternative for local native development:*
-```bash
-cd backend
-uv run alembic upgrade head
-```
-
-### Roll Back Migrations
-
-To downgrade by one migration step:
-```bash
-docker exec securelife_backend_dev uv run alembic downgrade -1
-```
-
-### Create a New Database Migration
-
-If you update SQLAlchemy models in `backend/app/db/models.py`:
-```bash
-docker exec securelife_backend_dev uv run alembic revision --autogenerate -m "add_new_table_or_field"
-```
-
----
-
-## Database Seeding Instructions
-
-The seed script creates initial team accounts (Brokers, Agents, Admins) and sample insurance leads across all pipeline stages with messages, notes, and documents.
-
-### Run the Seed Script
-
-**Inside Docker container:**
-```bash
-docker exec securelife_backend_dev uv run python -m app.db.seed
-```
-
-*Alternative for local native development:*
-```bash
-cd backend
-uv run python -m app.db.seed
-```
-
-Expected output:
-```
-[*] Checking for existing database records...
-[*] Cleared old seed data.
-[+] Seeded 3 team users.
-[+] Seeded sample leads across pipeline stages.
-[+] Seeding complete! Database is ready for development.
-```
-
-> **Tip for Clean Reseed**:
-> By design, `seed.py` skips generation if records already exist. To perform a fresh reseed from scratch:
-> ```bash
-> # Roll back all migrations to base, re-apply, and reseed
-> docker exec securelife_backend_dev uv run alembic downgrade base
-> docker exec securelife_backend_dev uv run alembic upgrade head
-> docker exec securelife_backend_dev uv run python -m app.db.seed
-> ```
+* [**Frontend Application Setup & Guide**](frontend/README.md)
+  * Docker Compose & Local Native setup (`npm`)
+  * Environment configuration (`VITE_API_URL`)
+  * NPM scripts (`dev`, `build`, `preview`, `lint`, `typecheck`)
+  * Frontend unit & component test execution (`Vitest`)
+  * Feature modules & architecture breakdown
 
 ---
 
 ## Pre-Configured Test Accounts
 
-After running the seed script, log in to the Broker Portal at [http://localhost:5173/dashboard](http://localhost:5173/dashboard):
+Log in to the Broker Portal at [http://localhost:5173/dashboard](http://localhost:5173/dashboard) using any of the following pre-seeded test accounts:
 
 | Role | Email | Password | Full Name | Capabilities |
 |---|---|---|---|---|
 | **Senior Broker** | `broker@securelife.com` | `password123` | Rajesh Sharma | Full pipeline access, lead reassignment, document underwriting approval |
 | **Underwriting Agent** | `agent@securelife.com` | `password123` | Pooja Verma | Lead intake, document OCR verification, notes |
 | **Admin** | `admin@securelife.com` | `password123` | Vikram Mehta | Full system and user administration |
-
----
-
-## Local Native Setup (Without Docker)
-
-If you prefer to run services directly on your host machine:
-
-### 1. Backend Setup
-```bash
-cd backend
-
-# Install dependencies using uv
-uv sync
-
-# Copy environment variables
-cp .env.example .env
-
-# Run database migrations
-uv run alembic upgrade head
-
-# Seed initial test data
-uv run python -m app.db.seed
-
-# Start FastAPI development server with auto-reload
-uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-### 2. Frontend Setup
-```bash
-cd frontend
-
-# Install npm dependencies
-npm install
-
-# Start Vite development server
-npm run dev
-```
-
-Visit [http://localhost:5173](http://localhost:5173) in your browser.
-
----
-
-## Testing & Quality Assurance
-
-### Run Backend Unit & Integration Tests (pytest)
-```bash
-# In Docker
-docker exec securelife_backend_dev uv run pytest
-
-# Locally
-cd backend
-uv run pytest
-```
-
-### Run Frontend Tests, Linting & Build Validation
-```bash
-cd frontend
-
-# Run all Vitest unit & component tests
-npm test -- --run
-
-# Run ESLint check
-npm run lint
-
-# Run TypeScript compilation & production build check
-npm run build
-```
 
 ---
 
